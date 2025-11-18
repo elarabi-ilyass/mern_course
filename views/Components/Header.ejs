@@ -1,0 +1,20 @@
+<!-- header.ejs -->
+<header style="background-color: #333; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center;">
+  <!-- Logo -->
+  <div class="logo">
+    <a href="/" style="color: white; text-decoration: none; font-size: 1.5rem; font-weight: bold;">
+      Mon Site
+    </a>
+  </div>
+
+  <!-- Navigation -->
+  <nav>
+    <% if (Tab && Tab.length) { %>
+    <ul style="list-style: none; display: flex; gap: 2rem; margin: 0; padding: 0;">
+      <% Tab.forEach(function(item) { %>
+        <li key="<%= item.id %>"><a href="<%= item.link %>" style="color: white; text-decoration: none;"><%= item.name %></a></li>
+      <% }) %>
+    </ul>
+    <% } %>
+  </nav>
+</header>
