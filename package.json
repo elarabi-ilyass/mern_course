@@ -2,15 +2,19 @@
   "name": "mern_course",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "app-module.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node app-module.js",
+    "dev": "nodemon app-module.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "lodash": "^4.17.21"
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "lodash": "^4.17.21",
+    "nodemon": "^3.1.10"
   }
 }
