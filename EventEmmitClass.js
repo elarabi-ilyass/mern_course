@@ -40,9 +40,9 @@ chat.on('userLeave', (user) => {
 });
 
 // Simulate chat activity
-chat.userJoins('John');
-chat.sendMessage('John', 'Hello everyone!');
-chat.sendMessage('Alice', 'Hi John! Welcome!');
+chat.userJoins('ILyass');
+chat.sendMessage('ILyass', 'Hello everyone!');
+chat.sendMessage('Alice', 'Hi Ilyass! Welcome!');
 chat.userJoins('Bob');
 chat.sendMessage('Bob', 'Hey guys!');
-chat.userLeaves('John');
+chat.userLeaves('Ilyass');
