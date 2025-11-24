@@ -1,7 +1,7 @@
 const express = require('express');
 const {connectDB} = require('./config/database');
-const userRoutes = require('./routes/users');
-const addressRoutes = require('./routes/addresses');
+const authorRoutes = require('./routes/author');
+const bookRoutes = require('./routes/book');
 
 const app = express();
 
@@ -9,15 +9,15 @@ const app = express();
 connectDB();
 
 // Middleware
-// app.use(express.json());
+app.use(express.json());
 
 // Routes
-app.use('/api/users', userRoutes);
-app.use('/api/addresses', addressRoutes);
+app.use('/api/authors', authorRoutes);
+app.use('/api/books', bookRoutes);
 
 // Home route
 app.get('/', (req, res) => {
-  res.json({ message: 'One-to-One Relationship API' });
+  res.json({ message: 'Many-to-Many Relationship API' });
 });
 
 const PORT = process.env.PORT || 5000;
