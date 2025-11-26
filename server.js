@@ -1,7 +1,7 @@
 const express = require('express');
 const {connectDB} = require('./config/database');
-const authorRoutes = require('./routes/author');
-const bookRoutes = require('./routes/book');
+const menuItemRoutes = require('./routes/menuItemRoutes');
+const restaurantRoutes = require('./routes/restaurantRoutes');
 
 const app = express();
 
@@ -12,12 +12,12 @@ connectDB();
 app.use(express.json());
 
 // Routes
-app.use('/api/authors', authorRoutes);
-app.use('/api/books', bookRoutes);
+app.use('/api/menuItemRoutes', menuItemRoutes);
+app.use('/api/restaurantRoutes', restaurantRoutes);
 
 // Home route
 app.get('/', (req, res) => {
-  res.json({ message: 'Many-to-Many Relationship API' });
+  res.json({ message: 'Many-to-one Relationship API' });
 });
 
 const PORT = process.env.PORT || 5000;
