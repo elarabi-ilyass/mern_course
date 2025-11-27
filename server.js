@@ -1,9 +1,11 @@
 const express = require('express');
 const {connectDB} = require('./config/database');
-const menuItemRoutes = require('./routes/menuItemRoutes');
-const restaurantRoutes = require('./routes/restaurantRoutes');
+const ItemRoutes = require('./routes/AuthRoutes');
+const {authMiddleware} = require('./middleware/authMiddleware'); // ← Vérifiez le chemin
+const multer = require('multer');
 
 const app = express();
+const upload = multer(); // This handles multipart/form-database
 
 // Connect to database
 connectDB();
@@ -12,16 +14,18 @@ connectDB();
 app.use(express.json());
 
 // Routes
-app.use('/api/menuItemRoutes', menuItemRoutes);
-app.use('/api/restaurantRoutes', restaurantRoutes);
+app.use('/api', ItemRoutes);
 
 // Home route
 app.get('/', (req, res) => {
-  res.json({ message: 'Many-to-one Relationship API' });
+  res.json({ message: 'Many-to-one  Relationship API' });
+});
+
+app.get('/profile',upload.none() ,authMiddleware, (req, res) => {      
+    res.json({ user: req.user });
 });
 
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

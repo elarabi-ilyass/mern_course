@@ -2,19 +2,16 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const {
-  createRestaurant,
-  getAllRestaurants,
-  getRestaurant,
-  updateRestaurant,
-  deleteRestaurant
-} = require('../controllers/restaurantController');
+  Register,
+  Login,
+} = require('../controllers/Auth');
 
 const upload = multer(); // This handles multipart/form-database
-router.post('/',upload.none() , createRestaurant);
-router.get('/', getAllRestaurants);
-router.get('/:id', getRestaurant);
-router.put('/:id',upload.none() , updateRestaurant);
-router.delete('/:id',upload.none() , deleteRestaurant);
+router.post('/registered',upload.none() , Register);
+router.get('/login',upload.none() , Login);
+
+
+
 
 module.exports = router;
 
