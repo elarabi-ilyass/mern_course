@@ -1,194 +1,297 @@
-// Here’s a complete, runnable example of implementing JWT authentication in an Express.js + MongoDB app with secure password hashing and protected routes.
-// It includes user registration, login, and JWT-protected endpoints.
+// cloudinaryUtils.js
+const cloudinary = require('../config/cloudinary');
+const fs = require('fs');
+const path = require('path');
 
-// Project Setup
-// mkdir jwt-auth-app
-// cd jwt-auth-app
-// npm init -y
-// npm install express mongoose bcryptjs jsonwebtoken dotenv cors
-
-// Directory Structure
-// jwt-auth-app/
-// │-- server.js
-// │-- .env
-// └-- models/
-//     └-- User.js
-
-// .env (Environment Variables)
-// PORT=5000
-// MONGO_URI=mongodb://127.0.0.1:27017/jwt_auth_demo
-// JWT_SECRET=your_jwt_secret_key_here
-// JWT_EXPIRES_IN=1h
-
-// models/User.js
-const mongoose = require('mongoose');
-
-// Define User schema
-const userSchema = new mongoose.Schema({
-    username: {
-        type: String,
-        required: true,
-        unique: true,
-        minlength: 3
-    },
-    password: {
-        type: String,
-        required: true,
-        minlength: 6
-    }
-});
-
-module.exports = mongoose.model('User', userSchema);
-
-server.js
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
-const User = require('./models/User');
-
-const app = express();
-
-// Middleware
-app.use(express.json());
-app.use(cors());
-
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
-.then(() => console.log('✅ MongoDB connected'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
-
-// Generate JWT Token
-const generateToken = (userId) => {
-    return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRES_IN
+/**
+ * CREATE - Upload une image vers Cloudinary
+ * @param {string} filePath - Chemin du fichier image
+ * @param {string} folder - Dossier Cloudinary (optionnel)
+ * @returns {Object} - URL et publicId de l'image
+ */
+const uploadImage = async (filePath, folder = 'images') => {
+  try {
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: folder,
+      resource_type: 'auto',
+      quality: 'auto',
+      fetch_format: 'auto'
     });
+    
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
+      size: result.bytes,
+      width: result.width,
+      height: result.height
+    };
+  } catch (error) {
+    console.error('Erreur upload Cloudinary:', error);
+    throw new Error(`Échec upload image: ${error.message}`);
+  }
 };
 
-// Middleware to protect routes
-const authMiddleware = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (err) {
-        return res.status(401).json({ message: 'Invalid or expired token' });
-    }
+/**
+ * READ - Récupère les informations d'une image
+ * @param {string} publicId - ID public de l'image
+ * @returns {Object} - Informations de l'image
+ */
+const getImageInfo = async (publicId) => {
+  try {
+    const result = await cloudinary.api.resource(publicId, {
+      resource_type: 'image'
+    });
+    
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
+      size: result.bytes,
+      width: result.width,
+      height: result.height,
+      createdAt: result.created_at,
+      tags: result.tags || []
+    };
+  } catch (error) {
+    console.error('Erreur récupération info image:', error);
+    throw new Error(`Impossible de récupérer l'image: ${error.message}`);
+  }
 };
 
-// Register Route
-app.post('/register', async (req, res) => {
-    try {
-        const { username, password } = req.body;
+/**
+ * READ - Liste les images dans un dossier
+ * @param {string} folder - Dossier Cloudinary
+ * @param {number} maxResults - Nombre maximum de résultats
+ * @returns {Array} - Liste des images
+ */
+const listImages = async (folder = 'images', maxResults = 100) => {
+  try {
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      prefix: folder,
+      max_results: maxResults,
+      resource_type: 'image'
+    });
+    
+    return result.resources.map(resource => ({
+      publicId: resource.public_id,
+      url: resource.secure_url,
+      format: resource.format,
+      size: resource.bytes,
+      width: resource.width,
+      height: resource.height,
+      createdAt: resource.created_at
+    }));
+  } catch (error) {
+    console.error('Erreur liste images:', error);
+    throw new Error(`Impossible de lister les images: ${error.message}`);
+  }
+};
 
-        // Validate input
-        if (!username || !password) {
-            return res.status(400).json({ message: 'Username and password are required' });
-        }
-
-        // Check if user exists
-        const existingUser = await User.findOne({ username });
-        if (existingUser) {
-            return res.status(400).json({ message: 'Username already exists' });
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Save user
-        const newUser = new User({ username, password: hashedPassword });
-        await newUser.save();
-
-        res.status(201).json({ message: 'User registered successfully' });
-    } catch (err) {
-        res.status(500).json({ message: 'Server error', error: err.message });
+/**
+ * UPDATE - Modifie une image (remplacement)
+ * @param {string} publicId - ID public de l'image existante
+ * @param {string} newFilePath - Chemin du nouveau fichier
+ * @param {boolean} deleteOriginal - Supprimer l'original après remplacement
+ * @returns {Object} - Nouvelle image
+ */
+const updateImage = async (publicId, newFilePath, deleteOriginal = true) => {
+  try {
+    // Télécharger la nouvelle image
+    const uploadResult = await uploadImage(newFilePath, path.dirname(publicId));
+    
+    // Supprimer l'ancienne image si demandé
+    if (deleteOriginal) {
+      await deleteImage(publicId);
     }
-});
+    
+    return uploadResult;
+  } catch (error) {
+    console.error('Erreur mise à jour image:', error);
+    throw new Error(`Impossible de mettre à jour l'image: ${error.message}`);
+  }
+};
 
-// Login Route
-app.post('/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
+/**
+ * UPDATE - Ajoute des tags à une image
+ * @param {string} publicId - ID public de l'image
+ * @param {Array} tags - Tags à ajouter
+ * @returns {Object} - Résultat de l'opération
+ */
+const addImageTags = async (publicId, tags) => {
+  try {
+    const result = await cloudinary.uploader.add_tag(tags, publicId);
+    return result;
+  } catch (error) {
+    console.error('Erreur ajout tags:', error);
+    throw new Error(`Impossible d'ajouter les tags: ${error.message}`);
+  }
+};
 
-        // Validate input
-        if (!username || !password) {
-            return res.status(400).json({ message: 'Username and password are required' });
-        }
+/**
+ * UPDATE - Supprime des tags d'une image
+ * @param {string} publicId - ID public de l'image
+ * @param {Array} tags - Tags à supprimer
+ * @returns {Object} - Résultat de l'opération
+ */
+const removeImageTags = async (publicId, tags) => {
+  try {
+    const result = await cloudinary.uploader.remove_tag(tags, publicId);
+    return result;
+  } catch (error) {
+    console.error('Erreur suppression tags:', error);
+    throw new Error(`Impossible de supprimer les tags: ${error.message}`);
+  }
+};
 
-        // Find user
-        const user = await User.findOne({ username });
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        // Compare password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        // Generate token
-        const token = generateToken(user._id);
-
-        res.json({ token });
-    } catch (err) {
-        res.status(500).json({ message: 'Server error', error: err.message });
+/**
+ * DELETE - Supprime une image de Cloudinary
+ * @param {string} publicId - ID public de l'image
+ * @returns {Object} - Résultat de la suppression
+ */
+const deleteImage = async (publicId) => {
+  try {
+    const result = await cloudinary.uploader.destroy(publicId);
+    
+    if (result.result !== 'ok') {
+      throw new Error(`Cloudinary deletion failed: ${result.result}`);
     }
-});
+    
+    return result;
+  } catch (error) {
+    console.error('Erreur suppression Cloudinary:', error);
+    throw new Error(`Échec suppression image: ${error.message}`);
+  }
+};
 
-// Protected Route
-app.get('/protected', authMiddleware, (req, res) => {
-    res.json({ message: `Hello user ${req.user.id}, you have access!` });
-});
+/**
+ * DELETE - Supprime plusieurs images
+ * @param {Array} publicIds - Tableau d'IDs publics
+ * @returns {Object} - Résultats de suppression
+ */
+const deleteMultipleImages = async (publicIds) => {
+  try {
+    const deletePromises = publicIds.map(publicId => 
+      deleteImage(publicId)
+    );
+    
+    const results = await Promise.allSettled(deletePromises);
+    
+    const successful = results.filter(r => r.status === 'fulfilled');
+    const failed = results.filter(r => r.status === 'rejected');
+    
+    return {
+      total: publicIds.length,
+      successful: successful.length,
+      failed: failed.length,
+      failedIds: failed.map(f => f.reason?.message || 'Unknown error')
+    };
+  } catch (error) {
+    console.error('Erreur suppression multiple:', error);
+    throw new Error(`Échec suppression images multiples: ${error.message}`);
+  }
+};
 
-// Start server
-app.listen(process.env.PORT, () => {
-    console.log(`🚀 Server running on port ${process.env.PORT}`);
-});
+/**
+ * CREATE - Upload multiple d'images
+ * @param {Array} filePaths - Tableau de chemins de fichiers
+ * @param {string} folder - Dossier Cloudinary
+ * @returns {Array} - Tableau des résultats
+ */
+const uploadMultipleImages = async (filePaths, folder = 'images') => {
+  try {
+    const uploadPromises = filePaths.map(filePath => 
+      uploadImage(filePath, folder)
+    );
+    
+    const results = await Promise.all(uploadPromises);
+    return results;
+  } catch (error) {
+    console.error('Erreur upload multiple:', error);
+    throw new Error(`Échec upload images multiples: ${error.message}`);
+  }
+};
 
-How to Test
-Start MongoDB locally or use MongoDB Atlas.
-Run the server:
-node server.js
+/**
+ * CREATE - Upload à partir d'une URL
+ * @param {string} imageUrl - URL de l'image
+ * @param {string} folder - Dossier Cloudinary
+ * @returns {Object} - URL et publicId de l'image
+ */
+const uploadFromUrl = async (imageUrl, folder = 'images') => {
+  try {
+    const result = await cloudinary.uploader.upload(imageUrl, {
+      folder: folder,
+      resource_type: 'auto'
+    });
+    
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
+      size: result.bytes
+    };
+  } catch (error) {
+    console.error('Erreur upload depuis URL:', error);
+    throw new Error(`Échec upload depuis URL: ${error.message}`);
+  }
+};
 
-Register a user:
-POST http://localhost:5000/register
-Content-Type: application/json
+/**
+ * READ - Génère une URL optimisée avec transformations
+ * @param {string} publicId - ID public de l'image
+ * @param {Object} options - Options de transformation
+ * @returns {string} - URL optimisée
+ */
+const generateOptimizedUrl = (publicId, options = {}) => {
+  const defaultOptions = {
+    width: options.width || 800,
+    height: options.height || null,
+    quality: 'auto',
+    fetch_format: 'auto',
+    crop: 'limit'
+  };
+  
+  return cloudinary.url(publicId, {
+    ...defaultOptions,
+    ...options
+  });
+};
 
-{
-  "username": "john",
-  "password": "mypassword"
-}
+/**
+ * DELETE - Vide un dossier complet
+ * @param {string} folder - Dossier à vider
+ * @returns {Object} - Résultat de l'opération
+ */
+const deleteFolder = async (folder) => {
+  try {
+    const result = await cloudinary.api.delete_folder(folder);
+    return result;
+  } catch (error) {
+    console.error('Erreur suppression dossier:', error);
+    throw new Error(`Impossible de supprimer le dossier: ${error.message}`);
+  }
+};
 
-Login to get a token:
-POST http://localhost:5000/login
-Content-Type: application/json
-
-{
-  "username": "john",
-  "password": "mypassword"
-}
-
-Response:
-{ "token": "your.jwt.token" }
-
-Access protected route:
-GET http://localhost:5000/protected
-Authorization: Bearer your.jwt.token
-
-
-✅ This setup is secure, modular, and production-ready for basic JWT authentication.
-If you want, I can extend this to include refresh tokens and role-based authorization so you can manage admin/user permissions.
-
-Do you want me to add refresh token support next?
+module.exports = {
+  // CREATE operations
+  uploadImage,
+  uploadMultipleImages,
+  uploadFromUrl,
+  
+  // READ operations
+  getImageInfo,
+  listImages,
+  generateOptimizedUrl,
+  
+  // UPDATE operations
+  updateImage,
+  addImageTags,
+  removeImageTags,
+  
+  // DELETE operations
+  deleteImage,
+  deleteMultipleImages,
+  deleteFolder
+};

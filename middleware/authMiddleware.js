@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+require('dotenv').config();
 // Exporte le middleware pour qu'il puisse être utilisé dans d'autres fichiers
 authMiddleware = (req, res, next) => {
     
